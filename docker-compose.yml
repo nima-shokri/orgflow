@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: bpms-postgres
+    environment:
+      POSTGRES_DB: bpms_app
+      POSTGRES_USER: bpms
+      POSTGRES_PASSWORD: bpms
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bpms -d bpms_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: bpms-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "56379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  operaton-postgres:
+    image: postgres:15-alpine
+    container_name: bpms-operaton-postgres
+    environment:
+      POSTGRES_DB: bpms_operaton
+      POSTGRES_USER: operaton
+      POSTGRES_PASSWORD: operaton
+    volumes:
+      - operaton_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U operaton -d bpms_operaton"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  operaton:
+    image: operaton/operaton:latest
+    container_name: bpms-operaton
+    depends_on:
+      operaton-postgres:
+        condition: service_healthy
+    environment:
+      DB_DRIVER: org.postgresql.Driver
+      DB_URL: jdbc:postgresql://operaton-postgres:5432/bpms_operaton
+      DB_USERNAME: operaton
+      DB_PASSWORD: operaton
+    ports:
+      - "58080:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  operaton_postgres_data:
